@@ -5,18 +5,22 @@ from Library import Library
 from UserManager import UserManager
 from BookFactory import BookFactory
 from SearchStrategy import SearchByTitle, SearchByAuthor, SearchByCategory
+from log_decorator import log_decorator
+
 
 
 class LibraryGUI:
     def __init__(self):
+        # Clear log file at the start of the program
+        with open("log.txt", "w", encoding="utf-8") as log_file:
+            log_file.write("")  # Wipe all previous logs
+
         self.library = Library()
         self.user_manager = UserManager()
         self.current_user = None
-
         self.root = tk.Tk()
         self.root.title("Library Management System")
-        self.root.geometry("600x400")
-
+        self.root.geometry("800x600")
         self.create_login_register_menu()
         self.root.mainloop()
 
@@ -32,6 +36,14 @@ class LibraryGUI:
         self.clear_window()
 
         tk.Label(self.root, text="Library Main Menu", font=("Arial", 16)).pack(pady=10)
+
+        # Load and display the image
+        try:
+            self.image = tk.PhotoImage(file="images/books_image.png")
+            image_label = tk.Label(self.root, image=self.image)
+            image_label.pack(side=tk.LEFT, padx=20, pady=20)  # Place the image on the left side
+        except Exception as e:
+            print(f"Error loading image: {e}")
 
         options = [
             ("Add Book", self.add_book),
@@ -90,6 +102,7 @@ class LibraryGUI:
         password_entry = tk.Entry(self.root, show="*")
         password_entry.pack()
 
+        @log_decorator("Login attempted")
         def perform_login():
             username = username_entry.get()
             password = password_entry.get()
@@ -101,9 +114,11 @@ class LibraryGUI:
                 messagebox.showerror("Error", "Invalid username or password")
 
         tk.Button(self.root, text="Login", command=perform_login, width=20).pack(pady=10)
+        tk.Button(self.root, text="Back", command=self.create_login_register_menu, width=20).pack(pady=10)
 
     def register(self):
         self.clear_window()
+
 
         tk.Label(self.root, text="Register", font=("Arial", 16)).pack(pady=10)
 
@@ -117,6 +132,7 @@ class LibraryGUI:
         password_entry = tk.Entry(self.root, show="*")
         password_entry.pack()
 
+        @log_decorator("Registration attempted")
         def perform_register():
             username = username_entry.get()
             password = password_entry.get()
@@ -128,6 +144,7 @@ class LibraryGUI:
                 messagebox.showerror("Error", str(e))
 
         tk.Button(self.root, text="Register", command=perform_register, width=20).pack(pady=10)
+        tk.Button(self.root, text="Back", command=self.create_login_register_menu, width=20).pack(pady=10)
 
     def add_book(self):
         self.clear_window()
@@ -135,7 +152,7 @@ class LibraryGUI:
         tk.Label(self.root, text="Add Book", font=("Arial", 16)).pack(pady=10)
 
         # Entry fields for book details
-        fields = ["Title", "Author", "Year", "Genre", "Copies"]
+        fields = ["Title", "Author", "Year", "Genre", "Copies", "Is Loaned (Yes/No)"]
         entries = {}
         for field in fields:
             tk.Label(self.root, text=f"{field}:").pack()
@@ -145,12 +162,16 @@ class LibraryGUI:
 
         def perform_add():
             try:
+                # Parse the is_loaned field as a boolean
+                is_loaned = entries["Is Loaned (Yes/No)"].get().strip().lower() == "yes"
+
                 book = BookFactory.create_book(
-                    entries["Title"].get(),
-                    entries["Author"].get(),
-                    int(entries["Year"].get()),
-                    entries["Genre"].get(),
-                    int(entries["Copies"].get())
+                    title=entries["Title"].get(),
+                    author=entries["Author"].get(),
+                    is_loaned=is_loaned,
+                    copies=int(entries["Copies"].get()),
+                    genre=entries["Genre"].get(),
+                    year=int(entries["Year"].get())
                 )
                 self.library.add_book(book)
                 messagebox.showinfo("Success", "Book added successfully")
@@ -220,12 +241,16 @@ class LibraryGUI:
         tk.Button(self.root, text="Back", command=self.create_main_menu, width=20).pack(pady=10)
 
     def view_books(self):
-        scrollable_frame = self.create_scrollable_frame("View Books", self.create_main_menu)
+        scrollable_frame = self.create_scrollable_frame("View Books", self.create_main_menu) # Add a scroll wheel
 
         books = self.library.books
         for book in books:
             tk.Label(scrollable_frame,
-                     text=f"{book.title} by {book.author} ({book.year}) - {book.copies} copies").pack()
+                     text=f"{book.title} by {book.author} ({book.year}) - {book.copies} copies",
+                     anchor="center", # Aligns text in the center
+                     justify="center", # Centers multi-line text
+                     width=80,  # Adjust width to ensure proper centering
+                     ).pack(fill=tk.X, pady=2) # Expands label to fit width
 
     def lend_book(self):
         self.clear_window()
@@ -263,13 +288,18 @@ class LibraryGUI:
         tk.Button(self.root, text="Return Book", command=perform_return, width=20).pack(pady=10)
         tk.Button(self.root, text="Back", command=self.create_main_menu, width=20).pack(pady=10)
 
+    @log_decorator("Displayed popular books")
     def popular_books(self):
         scrollable_frame = self.create_scrollable_frame("Popular Books", self.create_main_menu)
 
-        books = sorted(self.library.books, key=lambda b: -b.getCopies())[:5]
+        books = sorted(self.library.books, key=lambda b: -b.get_copies())[:5]
         for book in books:
             tk.Label(scrollable_frame,
-                     text=f"{book.title} by {book.author} ({book.year}) - {book.copies} copies").pack()
+                          text=f"{book.title} by {book.author} ({book.year}) - {book.copies} copies",
+                          anchor="center",  # Aligns text in the center
+                          justify="center",  # Centers multi-line text
+                          width=80,  # Adjust width to ensure proper centering
+                          ).pack(fill=tk.X, pady=2)  # Expands label to fit width
 
     def logout(self):
         self.current_user = None

@@ -19,4 +19,4 @@ class SearchByAuthor(SearchStrategy):
 
 class SearchByCategory(SearchStrategy):
     def search(self, books: List[Book], query: str) -> List[Book]:
-        return [book for book in books if query.lower() in book.category.lower()]
+        return [book for book in books if query.lower() in book.genre.lower()]

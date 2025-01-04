@@ -1,20 +1,23 @@
 # --- Book Management ---
 class Book:
-    def __init__(self, title: str, author: str, year: int, category: str, copies: int):
+    def __init__(self, title: str, author: str, is_loaned: bool, copies: int, genre: str, year: int):
         self.title = title
         self.author = author
-        self.year = year
-        self.category = category
+        self.is_loaned = is_loaned
         self.copies = copies
+        self.genre = genre
+        self.year = year
 
     def to_dict(self):
         return {
             "title": self.title,
             "author": self.author,
-            "year": self.year,
-            "category": self.category,
-            "copies": self.copies
+            "is_loaned": "Yes" if self.is_loaned else "No",
+            "copies": self.copies,
+            "genre": self.genre,
+            "year": self.year
         }
-    def getCopies(self):
+
+    def get_copies(self):
         return self.copies
 
