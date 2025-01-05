@@ -6,6 +6,7 @@ from UserManager import UserManager
 from BookFactory import BookFactory
 from SearchStrategy import SearchByTitle, SearchByAuthor, SearchByCategory
 from log_decorator import log_decorator
+from DynamicSearch import DynamicSearch
 
 
 
@@ -34,6 +35,7 @@ class LibraryGUI:
         self.root.geometry(f"{window_width}x{window_height}+{x}+{y}")
 
         # Continue with other initialization
+        self.dynamic_search = DynamicSearch()
         self.library = Library()
         self.user_manager = UserManager()
         self.current_user = None
@@ -211,23 +213,55 @@ class LibraryGUI:
 
     # Allows the user to remove a book from the library
     def remove_book(self):
+        """
+        Allows the user to dynamically search for books to remove using suggestions.
+        """
         self.clear_window()
 
         tk.Label(self.root, text="Remove Book", font=("Arial", 16)).pack(pady=10)
 
-        tk.Label(self.root, text="Title:").pack()
-        title_entry = tk.Entry(self.root)
-        title_entry.pack()
+        tk.Label(self.root, text="Search Query:").pack()
+        query_entry = tk.Entry(self.root)
+        query_entry.pack()
 
-        # Removes a book to the books.csv file
+        tk.Label(self.root, text="Suggestions:").pack()
+        suggestions_listbox = tk.Listbox(self.root, height=5, width=50)
+        suggestions_listbox.pack(pady=5)
+
+        # Bind the query_entry to the generalized update_suggestions function
+        query_entry.bind(
+            "<KeyRelease>",
+            lambda event: self.update_suggestions(
+                event, query_entry, suggestions_listbox, "Title", self.library, self.dynamic_search
+            ),
+        )
+
         def perform_remove():
-            title = title_entry.get()
-            self.library.remove_book(title)
-            messagebox.showinfo("Success", "Book removed successfully")
-            self.create_main_menu()
+            selected_index = suggestions_listbox.curselection()
+            if selected_index:
+                title = suggestions_listbox.get(selected_index[0])  # Get the selected book title
+            else:
+                title = query_entry.get()  # Use the text entered in the query_entry if no suggestion is selected
+
+            try:
+                self.library.remove_book(title)
+                messagebox.showinfo("Success", f"The book '{title}' was removed successfully.")
+                self.create_main_menu()
+            except ValueError as e:
+                messagebox.showerror("Error", str(e))
 
         tk.Button(self.root, text="Remove Book", command=perform_remove, width=20).pack(pady=10)
         tk.Button(self.root, text="Back", command=self.create_main_menu, width=20).pack(pady=10)
+
+    def update_suggestions(self, event, query_entry, suggestions_listbox, search_type, library, dynamic_search):
+        """
+        Updates suggestions in the listbox based on user input in the query entry.
+        """
+        query = query_entry.get()
+        suggestions_listbox.delete(0, tk.END)
+        suggestions = dynamic_search.suggest(search_type, library.books, query)
+        for suggestion in suggestions:
+            suggestions_listbox.insert(tk.END, suggestion)
 
     # Allows the user to search for books by title, author, or genre - uses SearchStrategy
     def search_book(self):
@@ -247,8 +281,25 @@ class LibraryGUI:
         query_entry = tk.Entry(self.root)
         query_entry.pack()
 
+        tk.Label(self.root, text="Suggestions:").pack()
+        suggestions_listbox = tk.Listbox(self.root, height=5, width=50)
+        suggestions_listbox.pack(pady=5)
+
+        # Bind the query_entry to the generalized update_suggestions function
+        query_entry.bind(
+            "<KeyRelease>",
+            lambda event: self.update_suggestions(
+                event, query_entry, suggestions_listbox, search_var.get(), self.library, self.dynamic_search
+            ),
+        )
+
         def perform_search():
-            query = query_entry.get()
+            selected_index = suggestions_listbox.curselection()
+            if selected_index:
+                query = suggestions_listbox.get(selected_index[0])
+            else:
+                query = query_entry.get()
+
             strategy = None
             if search_var.get() == "Title":
                 strategy = SearchByTitle()
@@ -262,10 +313,12 @@ class LibraryGUI:
                 if results:
                     result_frame = self.create_scrollable_frame("Search Results", self.search_book)
                     for book in results:
-                        tk.Label(result_frame,
-                                 text=f"{book.title} by {book.author} ({book.year}) - {book.copies} copies").pack()
+                        tk.Label(
+                            result_frame,
+                            text=f"{book.title} by {book.author} ({book.year}) - {book.copies} copies",
+                        ).pack()
                 else:
-                    messagebox.showinfo("No Results", "No books found for your query.")
+                    messagebox.showinfo("No Results", f"No books found for your query: {query}.")
 
         tk.Button(self.root, text="Search", command=perform_search, width=20).pack(pady=10)
         tk.Button(self.root, text="Back", command=self.create_main_menu, width=20).pack(pady=10)
@@ -293,8 +346,25 @@ class LibraryGUI:
         title_entry = tk.Entry(self.root)
         title_entry.pack()
 
+        tk.Label(self.root, text="Suggestions:").pack()
+        suggestions_listbox = tk.Listbox(self.root, height=5, width=50)
+        suggestions_listbox.pack(pady=5)
+
+        # Bind the query_entry to the generalized update_suggestions function
+        title_entry.bind(
+            "<KeyRelease>",
+            lambda event: self.update_suggestions(
+                event, title_entry, suggestions_listbox, "Title", self.library, self.dynamic_search
+            ),
+        )
+
         def perform_lend():
-            title = title_entry.get()
+            selected_index = suggestions_listbox.curselection()
+            if selected_index:
+                title = suggestions_listbox.get(selected_index[0])  # Get the selected book title
+            else:
+                title = title_entry.get()  # Use the text entered in the query_entry if no suggestion is selected
+
             try:
                 self.library.borrow_book(title)
                 messagebox.showinfo("Success", f"The book '{title}' was borrowed successfully.")
@@ -316,8 +386,25 @@ class LibraryGUI:
         title_entry = tk.Entry(self.root)
         title_entry.pack()
 
+        tk.Label(self.root, text="Suggestions:").pack()
+        suggestions_listbox = tk.Listbox(self.root, height=5, width=50)
+        suggestions_listbox.pack(pady=5)
+
+        # Bind the query_entry to the generalized update_suggestions function
+        title_entry.bind(
+            "<KeyRelease>",
+            lambda event: self.update_suggestions(
+                event, title_entry, suggestions_listbox, "Title", self.library, self.dynamic_search
+            ),
+        )
+
         def perform_return():
-            title = title_entry.get()
+            selected_index = suggestions_listbox.curselection()
+            if selected_index:
+                title = suggestions_listbox.get(selected_index[0])  # Get the selected book title
+            else:
+                title = title_entry.get()  # Use the text entered in the query_entry if no suggestion is selected
+
             try:
                 self.library.return_book(title)
                 messagebox.showinfo("Success", "Book returned successfully")

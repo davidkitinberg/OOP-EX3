@@ -137,6 +137,7 @@ class Library:
             raise ValueError(f"'{title}' not found in the library.")
         self.available_copies.pop(title, None)
         self.update_available_books_file()
+        self.update_books_file()
 
     # Returns a list of all books in the library
     @log_decorator("Displayed all books")
