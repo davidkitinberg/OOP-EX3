@@ -15,15 +15,32 @@ class LibraryGUI:
         with open("log.txt", "w", encoding="utf-8") as log_file:
             log_file.write("")  # Wipe all previous logs
 
-        self.library = Library()
-        self.user_manager = UserManager()
-        self.current_user = None
         self.root = tk.Tk()
         self.root.title("Library Management System")
         self.root.geometry("800x600")
+        # Get screen dimensions
+        screen_width = self.root.winfo_screenwidth()
+        screen_height = self.root.winfo_screenheight()
+
+        # Set window dimensions
+        window_width = 800
+        window_height = 600
+
+        # Calculate x and y coordinates for the window to center it
+        x = (screen_width // 2) - (window_width // 2)
+        y = (screen_height // 2) - (window_height // 2)
+
+        # Position the window at the center of the screen
+        self.root.geometry(f"{window_width}x{window_height}+{x}+{y}")
+
+        # Continue with other initialization
+        self.library = Library()
+        self.user_manager = UserManager()
+        self.current_user = None
         self.create_login_register_menu()
         self.root.mainloop()
 
+    # Displays the initial menu with options to log in or register
     def create_login_register_menu(self):
         self.clear_window()
 
@@ -32,9 +49,11 @@ class LibraryGUI:
         tk.Button(self.root, text="Login", command=self.login, width=20).pack(pady=5)
         tk.Button(self.root, text="Register", command=self.register, width=20).pack(pady=5)
 
+    # Displays the main menu of the library system after a successful login
     def create_main_menu(self):
         self.clear_window()
 
+        # Main menu title
         tk.Label(self.root, text="Library Main Menu", font=("Arial", 16)).pack(pady=10)
 
         # Load and display the image
@@ -60,6 +79,7 @@ class LibraryGUI:
 
         tk.Button(self.root, text="Logout", command=self.logout, width=20).pack(pady=5)
 
+    # Creates a scrollable frame for displaying large lists of items & Displays a "Back" button to return to the previous menu
     def create_scrollable_frame(self, title, callback):
         self.clear_window()
 
@@ -87,6 +107,7 @@ class LibraryGUI:
 
         return scrollable_frame
 
+    # Displays the login screen
     def login(self):
         self.clear_window()
 
@@ -102,6 +123,7 @@ class LibraryGUI:
         password_entry = tk.Entry(self.root, show="*")
         password_entry.pack()
 
+        # Validates credentials using UserManager
         @log_decorator("Login attempted")
         def perform_login():
             username = username_entry.get()
@@ -116,6 +138,7 @@ class LibraryGUI:
         tk.Button(self.root, text="Login", command=perform_login, width=20).pack(pady=10)
         tk.Button(self.root, text="Back", command=self.create_login_register_menu, width=20).pack(pady=10)
 
+    # Displays the registration screen
     def register(self):
         self.clear_window()
 
@@ -132,6 +155,7 @@ class LibraryGUI:
         password_entry = tk.Entry(self.root, show="*")
         password_entry.pack()
 
+        # Registers a new user using UserManager
         @log_decorator("Registration attempted")
         def perform_register():
             username = username_entry.get()
@@ -146,6 +170,7 @@ class LibraryGUI:
         tk.Button(self.root, text="Register", command=perform_register, width=20).pack(pady=10)
         tk.Button(self.root, text="Back", command=self.create_login_register_menu, width=20).pack(pady=10)
 
+    # Allows the user to add a new book to the library
     def add_book(self):
         self.clear_window()
 
@@ -160,11 +185,13 @@ class LibraryGUI:
             entry.pack()
             entries[field] = entry
 
+        # Add a book to the books.csv file
         def perform_add():
             try:
                 # Parse the is_loaned field as a boolean
                 is_loaned = entries["Is Loaned (Yes/No)"].get().strip().lower() == "yes"
 
+                # Book factory
                 book = BookFactory.create_book(
                     title=entries["Title"].get(),
                     author=entries["Author"].get(),
@@ -182,6 +209,7 @@ class LibraryGUI:
         tk.Button(self.root, text="Add Book", command=perform_add, width=20).pack(pady=10)
         tk.Button(self.root, text="Back", command=self.create_main_menu, width=20).pack(pady=10)
 
+    # Allows the user to remove a book from the library
     def remove_book(self):
         self.clear_window()
 
@@ -191,6 +219,7 @@ class LibraryGUI:
         title_entry = tk.Entry(self.root)
         title_entry.pack()
 
+        # Removes a book to the books.csv file
         def perform_remove():
             title = title_entry.get()
             self.library.remove_book(title)
@@ -200,6 +229,7 @@ class LibraryGUI:
         tk.Button(self.root, text="Remove Book", command=perform_remove, width=20).pack(pady=10)
         tk.Button(self.root, text="Back", command=self.create_main_menu, width=20).pack(pady=10)
 
+    # Allows the user to search for books by title, author, or genre - uses SearchStrategy
     def search_book(self):
         self.clear_window()
 
@@ -240,6 +270,7 @@ class LibraryGUI:
         tk.Button(self.root, text="Search", command=perform_search, width=20).pack(pady=10)
         tk.Button(self.root, text="Back", command=self.create_main_menu, width=20).pack(pady=10)
 
+    # Displays a list of all books in the library
     def view_books(self):
         scrollable_frame = self.create_scrollable_frame("View Books", self.create_main_menu) # Add a scroll wheel
 
@@ -252,6 +283,7 @@ class LibraryGUI:
                      width=80,  # Adjust width to ensure proper centering
                      ).pack(fill=tk.X, pady=2) # Expands label to fit width
 
+    # Allows the user to lend a book to a customer
     def lend_book(self):
         self.clear_window()
 
@@ -263,14 +295,18 @@ class LibraryGUI:
 
         def perform_lend():
             title = title_entry.get()
-            if self.library.borrow_book(title):
-                messagebox.showinfo("Success", "Book borrowed successfully")
-            else:
-                messagebox.showerror("Error", "Book not available")
+            try:
+                self.library.borrow_book(title)
+                messagebox.showinfo("Success", f"The book '{title}' was borrowed successfully.")
+                self.create_main_menu()  # Automatically go back to the main menu
+            except ValueError as e:
+                messagebox.showerror("Error", str(e))
+                self.create_main_menu()  # Automatically go back to the main menu
 
         tk.Button(self.root, text="Lend Book", command=perform_lend, width=20).pack(pady=10)
         tk.Button(self.root, text="Back", command=self.create_main_menu, width=20).pack(pady=10)
 
+    # Allows the user to return a previously lent book
     def return_book(self):
         self.clear_window()
 
@@ -282,12 +318,18 @@ class LibraryGUI:
 
         def perform_return():
             title = title_entry.get()
-            self.library.return_book(title)
-            messagebox.showinfo("Success", "Book returned successfully")
+            try:
+                self.library.return_book(title)
+                messagebox.showinfo("Success", "Book returned successfully")
+                self.create_main_menu()  # Automatically go back to the main menu
+            except ValueError as e:
+                messagebox.showerror("Error", str(e))
+                self.create_main_menu()  # Automatically go back to the main menu
 
         tk.Button(self.root, text="Return Book", command=perform_return, width=20).pack(pady=10)
         tk.Button(self.root, text="Back", command=self.create_main_menu, width=20).pack(pady=10)
 
+    # Displays the top 5 books with the highest number of copies
     @log_decorator("Displayed popular books")
     def popular_books(self):
         scrollable_frame = self.create_scrollable_frame("Popular Books", self.create_main_menu)
@@ -301,10 +343,12 @@ class LibraryGUI:
                           width=80,  # Adjust width to ensure proper centering
                           ).pack(fill=tk.X, pady=2)  # Expands label to fit width
 
+    # Logs out the current user and returns to the login/register menu
     def logout(self):
         self.current_user = None
         self.create_login_register_menu()
 
+    # This is simple function to clear all widgets in GUI
     def clear_window(self):
         for widget in self.root.winfo_children():
             widget.destroy()
