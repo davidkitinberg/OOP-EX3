@@ -96,17 +96,26 @@ class Library:
                 return
         raise ValueError(f"Book '{title}' not found in the library.")
 
+    # @log_decorator("Book borrowed")
+    # def borrow_book(self, title):
+    #     """Borrow a book, decrementing its available copies."""
+    #     if title in self.available_copies:
+    #         if self.available_copies[title] > 0:
+    #             self.available_copies[title] -= 1
+    #             self.switch_is_loaned_state(title)
+    #         else:
+    #             raise ValueError(f"'{title}' is currently unavailable.")
+    #     else:
+    #         raise ValueError(f"'{title}' does not exist in the library.")
+
     @log_decorator("Book borrowed")
     def borrow_book(self, title):
         """Borrow a book, decrementing its available copies."""
-        if title in self.available_copies:
-            if self.available_copies[title] > 0:
-                self.available_copies[title] -= 1
-                self.switch_is_loaned_state(title)
-            else:
-                raise ValueError(f"'{title}' is currently unavailable.")
-        else:
-            raise ValueError(f"'{title}' does not exist in the library.")
+        if title in self.available_copies and self.available_copies[title] > 0:
+            self.available_copies[title] -= 1
+            self.switch_is_loaned_state(title)
+            return f"Book '{title}' borrowed"
+        raise ValueError(f"'{title}' is currently unavailable.")
 
     @log_decorator("Book returned")
     def return_book(self, title):
@@ -116,7 +125,7 @@ class Library:
                 if self.available_copies[title] < book.copies:
                     self.available_copies[title] += 1
                     self.switch_is_loaned_state(title)
-                    return
+                    return f"Book '{title}' returned"
                 else:
                     raise ValueError(f"All copies of '{title}' are already returned.")
         raise ValueError(f"'{title}' does not exist in the library.")
@@ -127,6 +136,7 @@ class Library:
         self.books.append(book)
         self.available_copies[book.title] = book.copies
         self.update_available_books_file()
+        return f"Book '{book.title}' added"
 
     @log_decorator("Book removed")
     def remove_book(self, title):
@@ -138,18 +148,22 @@ class Library:
         self.available_copies.pop(title, None)
         self.update_available_books_file()
         self.update_books_file()
+        return f"Book '{title}' removed"
 
     # Returns a list of all books in the library
     @log_decorator("Displayed all books")
     def display_all_books(self):
-        return self.books
+        """Display all books in the library."""
+        return [f"{book.title} by {book.author}" for book in self.books]
 
     # Returns a list of books that are not currently loaned out
     @log_decorator("Displayed available books")
     def display_available_books(self):
-        return [book for book in self.books if self.available_copies.get(book.title, 0) > 0]
+        """Display available books."""
+        return [f"{book.title} by {book.author}" for book in self.books if self.available_copies.get(book.title, 0) > 0]
 
     # Returns a list of books in a specific category
     @log_decorator("Displayed books by category")
     def display_books_by_category(self, category):
-        return [book for book in self.books if book.genre.lower() == category.lower()]
+        """Display books in a specific category."""
+        return [f"{book.title} by {book.author}" for book in self.books if book.genre.lower() == category.lower()]

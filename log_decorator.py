@@ -19,6 +19,8 @@ def log_decorator(action):
     """
     def decorator(func):
         @functools.wraps(func)
+        # Define a wrapper function that takes any arguments (*args) and keyword
+        # arguments (**kwargs) that the original function func accepts
         def wrapper(*args, **kwargs):
             try:
                 result = func(*args, **kwargs)
