@@ -18,7 +18,8 @@ class LibraryGUI:
 
         self.root = tk.Tk()
         self.root.title("Library Management System")
-        self.root.geometry("800x600")
+        #self.root.configure(background="#3d378a")
+        #self.root.geometry("800x600")
         # Get screen dimensions
         screen_width = self.root.winfo_screenwidth()
         screen_height = self.root.winfo_screenheight()
@@ -126,16 +127,22 @@ class LibraryGUI:
         password_entry.pack()
 
         # Validates credentials using UserManager
-        @log_decorator("Login attempted")
+        @log_decorator
         def perform_login():
-            username = username_entry.get()
-            password = password_entry.get()
-            if self.user_manager.authenticate_user(username, password):
-                self.current_user = username
-                messagebox.showinfo("Success", "Login Successful")
-                self.create_main_menu()
-            else:
-                messagebox.showerror("Error", "Invalid username or password")
+            """Attempt to log in."""
+            try:
+                username = username_entry.get()
+                password = password_entry.get()
+                if self.user_manager.authenticate_user(username, password):
+                    self.current_user = username
+                    messagebox.showinfo("Success", "Login Successful")
+                    self.create_main_menu()
+                    return f"logged in successfully"
+                else:
+                    messagebox.showerror("Error", "Invalid username or password")
+                    raise ValueError("Invalid username or password")
+            except Exception as e:
+                return f"logged in fail: {str(e)}"
 
         tk.Button(self.root, text="Login", command=perform_login, width=20).pack(pady=10)
         tk.Button(self.root, text="Back", command=self.create_login_register_menu, width=20).pack(pady=10)
@@ -158,16 +165,19 @@ class LibraryGUI:
         password_entry.pack()
 
         # Registers a new user using UserManager
-        @log_decorator("Registration attempted")
+        @log_decorator
         def perform_register():
-            username = username_entry.get()
-            password = password_entry.get()
+            """Attempt to register a new user."""
             try:
+                username = username_entry.get()
+                password = password_entry.get()
                 self.user_manager.register_user(username, password)
                 messagebox.showinfo("Success", "Registration Successful")
                 self.create_login_register_menu()
-            except ValueError as e:
+                return f"registration successful"
+            except Exception as e:
                 messagebox.showerror("Error", str(e))
+                return f"registered fail: {str(e)}"
 
         tk.Button(self.root, text="Register", command=perform_register, width=20).pack(pady=10)
         tk.Button(self.root, text="Back", command=self.create_login_register_menu, width=20).pack(pady=10)
@@ -336,8 +346,8 @@ class LibraryGUI:
                      width=80,  # Adjust width to ensure proper centering
                      ).pack(fill=tk.X, pady=2) # Expands label to fit width
 
-    # Allows the user to lend a book to a customer
     def lend_book(self):
+        """Handle lending a book."""
         self.clear_window()
 
         tk.Label(self.root, text="Lend Book", font=("Arial", 16)).pack(pady=10)
@@ -366,12 +376,25 @@ class LibraryGUI:
                 title = title_entry.get()  # Use the text entered in the query_entry if no suggestion is selected
 
             try:
-                self.library.borrow_book(title)
-                messagebox.showinfo("Success", f"The book '{title}' was borrowed successfully.")
-                self.create_main_menu()  # Automatically go back to the main menu
+                # Attempt to borrow the book
+                result = self.library.borrow_book(title)
+                if result == "borrowed_successfully":
+                    messagebox.showinfo("Success", f"The book '{title}' was borrowed successfully.")
+                    self.create_main_menu()  # Automatically go back to the main menu
+                elif result == "unavailable":
+                    # Prompt for the waiting list if the book is unavailable
+                    result = messagebox.askyesno(
+                        "Waiting List",
+                        f"'{title}' is fully borrowed.\nWould you like to be added to the waiting list?",
+                    )
+                    if result:  # User chose "Yes"
+                        self.add_to_waiting_list_form(title)
+                    else:  # User chose "No"
+                        self.create_main_menu()
             except ValueError as e:
+                # Handle exceptions (e.g., book does not exist)
                 messagebox.showerror("Error", str(e))
-                self.create_main_menu()  # Automatically go back to the main menu
+                self.create_main_menu()
 
         tk.Button(self.root, text="Lend Book", command=perform_lend, width=20).pack(pady=10)
         tk.Button(self.root, text="Back", command=self.create_main_menu, width=20).pack(pady=10)
@@ -417,7 +440,7 @@ class LibraryGUI:
         tk.Button(self.root, text="Back", command=self.create_main_menu, width=20).pack(pady=10)
 
     # Displays the top 5 books with the highest number of copies
-    @log_decorator("Displayed popular books")
+    @log_decorator
     def popular_books(self):
         scrollable_frame = self.create_scrollable_frame("Popular Books", self.create_main_menu)
 
@@ -439,6 +462,59 @@ class LibraryGUI:
     def clear_window(self):
         for widget in self.root.winfo_children():
             widget.destroy()
+
+
+    def add_to_waiting_list_form(self, title):
+        """Display a form to add a client to the waiting list for a specific book."""
+        self.clear_window()
+
+        # Get book details
+        try:
+            book = next(book for book in self.library.books if book.title == title)
+        except StopIteration: # If book not found, go back to main menu
+            messagebox.showerror("Error", f"Book '{title}' not found.")
+            self.create_main_menu()
+            return
+
+        tk.Label(self.root, text=f"Add to Waiting List for '{title}'", font=("Arial", 16)).pack(pady=10)
+
+        # Pre-fill book information
+        fields = {
+            "Title": book.title,
+            "Author": book.author,
+            "Genre": book.genre,
+            "Year": book.year,
+            "Client Name": "",
+            "Email Address": "",
+            "Phone Number": "",
+        }
+        entries = {}
+
+        for field, default in fields.items():
+            tk.Label(self.root, text=f"{field}:").pack()
+            entry = tk.Entry(self.root)
+            entry.insert(0, default)  # Pre-fill book details
+            entry.pack()
+            entries[field] = entry
+
+        def submit_to_waiting_list():
+            try:
+                self.library.waiting_list_manager.add_to_waiting_list(
+                    title=entries["Title"].get(),
+                    author=entries["Author"].get(),
+                    genre=entries["Genre"].get(),
+                    year=int(entries["Year"].get()),
+                    client=entries["Client Name"].get(),
+                    email=entries["Email Address"].get(),
+                    phone=entries["Phone Number"].get(),
+                )
+                messagebox.showinfo("Success", f"Added to waiting list for '{title}'.")
+                self.create_main_menu()
+            except Exception as e:
+                messagebox.showerror("Error", str(e))
+
+        tk.Button(self.root, text="Submit", command=submit_to_waiting_list, width=20).pack(pady=10)
+        tk.Button(self.root, text="Back", command=self.create_main_menu, width=20).pack(pady=10)
 
 
 if __name__ == "__main__":

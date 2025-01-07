@@ -31,17 +31,20 @@ class UserManager:
                 writer.writerow({"username": username, "password": hashed_password})
 
     # Registers a new user by adding them to the system
-    @log_decorator("Registered successfully")
+    @log_decorator
     def register_user(self, username, password):
+        """Register a new user."""
         if username in self.users:
             raise ValueError("Username already exists")
         hashed_password = generate_password_hash(password)
         self.users[username] = hashed_password
         self.save_users()
+        return "registered successfully"
+
 
     # Authenticates a user by verifying their credentials
-    @log_decorator("Logged in successfully")
     def authenticate_user(self, username: str, password: str) -> bool:
+        """Authenticate a user."""
         hashed_password = self.users.get(username)
         if not hashed_password:
             return False
