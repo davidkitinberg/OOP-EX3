@@ -139,7 +139,7 @@ class Library:
         else: # If book does not exist in the library
             raise ValueError(f"'{title}' does not exist in the library.")
 
-    @log_decorator
+
     def return_book(self, title):
         """Return a book, notify the next client if there's a waiting list."""
         try:

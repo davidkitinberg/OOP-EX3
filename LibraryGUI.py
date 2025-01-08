@@ -433,7 +433,7 @@ class LibraryGUI:
                 event, title_entry, suggestions_listbox, "Title", self.library, self.dynamic_search
             ),
         )
-
+        @log_decorator
         def perform_return():
             selected_index = suggestions_listbox.curselection()
             if selected_index:
@@ -442,12 +442,16 @@ class LibraryGUI:
                 title = title_entry.get()  # Use the text entered in the query_entry if no suggestion is selected
 
             try:
-                self.library.return_book(title)
-                messagebox.showinfo("Success", "Book returned successfully")
+                result = self.library.return_book(title)
+                # Notify the user of success
+                messagebox.showinfo("Success", result)
+                self.create_main_menu()
+                return result
+            except Exception:
+                # Handle general errors and log them
+                messagebox.showerror("Error", "Book return failed - please write valid parameters")
                 self.create_main_menu()  # Automatically go back to the main menu
-            except ValueError as e:
-                messagebox.showerror("Error", str(e))
-                self.create_main_menu()  # Automatically go back to the main menu
+                return "book return fail"
 
         tk.Button(self.root, text="Return Book", command=perform_return, width=20).pack(pady=10)
         tk.Button(self.root, text="Back", command=self.create_main_menu, width=20).pack(pady=10)
