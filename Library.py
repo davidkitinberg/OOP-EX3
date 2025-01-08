@@ -127,26 +127,16 @@ class Library:
             - "unavailable" if the book is currently unavailable.
             - Raises ValueError if the book does not exist.
         """
+        # Check if the book is in the system
         if title in self.available_copies:
+            # Check if there are available copies to lend
             if self.available_copies[title] > 0:
                 self.available_copies[title] -= 1
                 self.switch_is_loaned_state(title)
-                return "borrowed_successfully"
-            else:
-                if client and email and phone:
-                    self.waiting_list_manager.add_to_waiting_list(
-                        title=title,
-                        author=next(book.author for book in self.books if book.title == title),
-                        genre=next(book.genre for book in self.books if book.title == title),
-                        year=next(book.year for book in self.books if book.title == title),
-                        client=client,
-                        email=email,
-                        phone=phone,
-                    )
-                    return "added_to_waiting_list"
-                else:
-                    return "unavailable"
-        else:
+                return "book borrowed successfully"
+            else: # If there are no available copies -> start waiting list sequence BEEP BOP
+                return "book borrowed fail - no available copies"
+        else: # If book does not exist in the library
             raise ValueError(f"'{title}' does not exist in the library.")
 
     @log_decorator
@@ -172,7 +162,7 @@ class Library:
             return f"book '{title}' returned fail"
 
 
-    @log_decorator
+
     def add_book(self, book):
         """Add a book to the library."""
         try:
@@ -181,10 +171,10 @@ class Library:
             self.update_available_books_file()
             self.update_books_file()
             return f"book added successfully"
-        except Exception:
-            return f"book added fail"
+        except Exception as e:
+            raise RuntimeError(f"Book added fail: {str(e)}")
 
-    @log_decorator
+
     def remove_book(self, title):
         """Remove a book and notify clients on the waiting list."""
         # Check if the book is in the system

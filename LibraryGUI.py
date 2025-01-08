@@ -174,7 +174,7 @@ class LibraryGUI:
                 self.user_manager.register_user(username, password)
                 messagebox.showinfo("Success", "Registration Successful")
                 self.create_login_register_menu()
-                return f"registration successful"
+                return f"registered successfully"
             except Exception as e:
                 messagebox.showerror("Error", str(e))
                 return f"registered fail: {str(e)}"
@@ -198,6 +198,7 @@ class LibraryGUI:
             entries[field] = entry
 
         # Add a book to the books.csv file
+        @log_decorator
         def perform_add():
             try:
                 # Parse the is_loaned field as a boolean
@@ -212,11 +213,17 @@ class LibraryGUI:
                     genre=entries["Genre"].get(),
                     year=int(entries["Year"].get())
                 )
-                self.library.add_book(book)
-                messagebox.showinfo("Success", "Book added successfully")
+                # Call the library's add_book method
+                result = self.library.add_book(book)
+
+                # Notify the user of success
+                messagebox.showinfo("Success", result)
                 self.create_main_menu()
-            except ValueError:
-                messagebox.showerror("Error", "Invalid input. Please check the fields.")
+                return result
+            except Exception:
+                # Handle general errors and log them
+                messagebox.showerror("Error", "Book addition failed - please write valid parameters")
+                return "book added fail"
 
         tk.Button(self.root, text="Add Book", command=perform_add, width=20).pack(pady=10)
         tk.Button(self.root, text="Back", command=self.create_main_menu, width=20).pack(pady=10)
@@ -246,6 +253,7 @@ class LibraryGUI:
             ),
         )
 
+        @log_decorator
         def perform_remove():
             selected_index = suggestions_listbox.curselection()
             if selected_index:
@@ -254,11 +262,16 @@ class LibraryGUI:
                 title = query_entry.get()  # Use the text entered in the query_entry if no suggestion is selected
 
             try:
-                self.library.remove_book(title)
-                messagebox.showinfo("Success", f"The book '{title}' was removed successfully.")
+                result = self.library.remove_book(title)
+
+                # Notify the user of success
+                messagebox.showinfo("Success", result)
                 self.create_main_menu()
-            except ValueError as e:
-                messagebox.showerror("Error", str(e))
+                return result
+            except Exception:
+                # Handle general errors and log them
+                messagebox.showerror("Error", "Book remove failed - please write valid parameters")
+                return "book added fail"
 
         tk.Button(self.root, text="Remove Book", command=perform_remove, width=20).pack(pady=10)
         tk.Button(self.root, text="Back", command=self.create_main_menu, width=20).pack(pady=10)
@@ -343,7 +356,7 @@ class LibraryGUI:
                      text=f"{book.title} by {book.author} ({book.year}) - {book.copies} copies",
                      anchor="center", # Aligns text in the center
                      justify="center", # Centers multi-line text
-                     width=80,  # Adjust width to ensure proper centering
+                     width=110,  # Adjust width to ensure proper centering
                      ).pack(fill=tk.X, pady=2) # Expands label to fit width
 
     def lend_book(self):
@@ -378,10 +391,10 @@ class LibraryGUI:
             try:
                 # Attempt to borrow the book
                 result = self.library.borrow_book(title)
-                if result == "borrowed_successfully":
+                if result == "book borrowed successfully":
                     messagebox.showinfo("Success", f"The book '{title}' was borrowed successfully.")
                     self.create_main_menu()  # Automatically go back to the main menu
-                elif result == "unavailable":
+                elif result == "book borrowed fail - no available copies":
                     # Prompt for the waiting list if the book is unavailable
                     result = messagebox.askyesno(
                         "Waiting List",

@@ -31,7 +31,6 @@ class UserManager:
                 writer.writerow({"username": username, "password": hashed_password})
 
     # Registers a new user by adding them to the system
-    @log_decorator
     def register_user(self, username, password):
         """Register a new user."""
         if username in self.users:
@@ -39,7 +38,6 @@ class UserManager:
         hashed_password = generate_password_hash(password)
         self.users[username] = hashed_password
         self.save_users()
-        return "registered successfully"
 
 
     # Authenticates a user by verifying their credentials
