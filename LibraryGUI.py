@@ -315,7 +315,7 @@ class LibraryGUI:
                 event, query_entry, suggestions_listbox, search_var.get(), self.library, self.dynamic_search
             ),
         )
-
+        @log_decorator
         def perform_search():
             selected_index = suggestions_listbox.curselection()
             if selected_index:
@@ -323,13 +323,17 @@ class LibraryGUI:
             else:
                 query = query_entry.get()
 
+            log = None
             strategy = None
             if search_var.get() == "Title":
                 strategy = SearchByTitle()
+                log = "name"
             elif search_var.get() == "Author":
                 strategy = SearchByAuthor()
+                log = "author"
             elif search_var.get() == "Genre":
                 strategy = SearchByCategory()
+                log = "category"
 
             if strategy:
                 results = strategy.search(self.library.books, query)
@@ -340,24 +344,64 @@ class LibraryGUI:
                             result_frame,
                             text=f"{book.title} by {book.author} ({book.year}) - {book.copies} copies",
                         ).pack()
+                        return f"Search book \"{book.title}\" by {log} completed successfully"
                 else:
                     messagebox.showinfo("No Results", f"No books found for your query: {query}.")
+                    return f"Search book \"{query}\" by {log} failed"
 
         tk.Button(self.root, text="Search", command=perform_search, width=20).pack(pady=10)
         tk.Button(self.root, text="Back", command=self.create_main_menu, width=20).pack(pady=10)
 
     # Displays a list of all books in the library
+    # Displays a list of all books in the library
     def view_books(self):
         scrollable_frame = self.create_scrollable_frame("View Books", self.create_main_menu) # Add a scroll wheel
+        search_var = tk.StringVar(value="All books")
 
-        books = self.library.books
-        for book in books:
-            tk.Label(scrollable_frame,
-                     text=f"{book.title} by {book.author} ({book.year}) - {book.copies} copies",
-                     anchor="center", # Aligns text in the center
-                     justify="center", # Centers multi-line text
-                     width=110,  # Adjust width to ensure proper centering
-                     ).pack(fill=tk.X, pady=2) # Expands label to fit width
+        # Search options
+        options = [
+            ("All books", "All books"),
+            ("Available books", "Available books"),
+            ("Loaned books", "Loaned books")
+        ]
+
+        # Add the radio buttons above the book list
+        for text, value in options:
+            tk.Radiobutton(self.root, text=text, variable=search_var, value=value, command=lambda: display_books()).pack()
+
+        def display_books():
+            selected_option = search_var.get()
+            if selected_option == "All books":
+                books = self.library.books
+            elif selected_option == "Available books":
+                books = [book for book in self.library.books if self.library.available_copies.get(book.title, 0) > 0]
+            elif selected_option == "Loaned books":
+                books = [book for book in self.library.books if self.library.available_copies.get(book.title, 0) == 0]
+            else:
+                books = []
+
+            for widget in scrollable_frame.winfo_children():
+                widget.destroy()
+
+            for book in books:
+                if selected_option == "All books":
+                    text = f"{book.title} by {book.author} ({book.year}) - {book.copies} copies"
+                elif selected_option == "Available books":
+                    text = f"{book.title} by {book.author} ({book.year}) - {self.library.available_copies.get(book.title, 0)} available copies"
+                elif selected_option == "Loaned books":
+                    text = f"{book.title} by {book.author} ({book.year}) - {self.library.loaned_books.get(book.title, 0)} loaned copies"
+
+                tk.Label(scrollable_frame,
+                         text=text,
+                         anchor="center", # Aligns text in the center
+                         justify="center", # Centers multi-line text
+                         width=110,  # Adjust width to ensure proper centering
+                         ).pack(fill=tk.X, pady=2) # Expands label to fit width
+
+        # Initially populate the book list with all books
+        display_books()
+
+
 
     def lend_book(self):
         """Handle lending a book."""
@@ -463,21 +507,43 @@ class LibraryGUI:
     # Displays the top 5 books with the highest number of copies
     @log_decorator
     def popular_books(self):
+        """
+        Display the top 5 popular books in the GUI.
+        Logs success or failure of the operation.
+        """
         scrollable_frame = self.create_scrollable_frame("Popular Books", self.create_main_menu)
 
-        books = sorted(self.library.books, key=lambda b: -b.get_copies())[:5]
-        for book in books:
-            tk.Label(scrollable_frame,
-                          text=f"{book.title} by {book.author} ({book.year}) - {book.copies} copies",
-                          anchor="center",  # Aligns text in the center
-                          justify="center",  # Centers multi-line text
-                          width=80,  # Adjust width to ensure proper centering
-                          ).pack(fill=tk.X, pady=2)  # Expands label to fit width
+        try:
+            books = self.library.popular_books()  # Fetch top 5 popular books
+            if not books:
+                tk.Label(scrollable_frame, text="No popular books found.").pack()
+                return "popular books - displayed successfully (none found)"
+
+            # Display the top 5 books
+            for book in books:
+                tk.Label(
+                    scrollable_frame,
+                    text=f"{book['title']} by {book['author']} (Popularity: {book['popularity']})",
+                    anchor="center",
+                    justify="center",
+                    width=110,
+                ).pack(fill=tk.X, pady=2)
+
+            return "popular books - displayed successfully"
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to display popular books: {str(e)}")
+            return "popular books - displayed failed"
 
     # Logs out the current user and returns to the login/register menu
+    @log_decorator
     def logout(self):
-        self.current_user = None
-        self.create_login_register_menu()
+        try:
+            self.current_user = None
+            self.create_login_register_menu()
+            return "logged out successfully"
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to logout: {str(e)}")
+            return "logged out successfully"
 
     # This is simple function to clear all widgets in GUI
     def clear_window(self):

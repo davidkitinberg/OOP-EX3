@@ -244,6 +244,39 @@ class Library:
         except Exception:
             return f"book '{title}' removed fail"
 
+    def popular_books(self):
+        """
+        Display the top 5 popular books based on the sum of loaned_copies and in_waiting_list.
+        Returns:
+            A list of the top 5 popular books in the format:
+            [
+                {"title": "Book Title", "author": "Author", "popularity": score, "genre": "Genre", "year": Year},
+                ...
+            ]
+        """
+        popular_books_data = []
+
+        # Load loaned_books data
+        if os.path.exists(self.loaned_books_file):
+            with open(self.loaned_books_file, "r", encoding="utf-8") as file:
+                reader = csv.DictReader(file)
+                for row in reader:
+                    loaned_copies = int(row["loaned_copies"])
+                    in_waiting_list = int(row["in_waiting_list"])
+                    popularity_score = loaned_copies + in_waiting_list
+
+                    popular_books_data.append({
+                        "title": row["title"],
+                        "author": row["author"],
+                        "popularity": popularity_score,
+                        "genre": row["genre"],
+                        "year": row["year"],
+                    })
+
+        # Sort books by popularity in descending order and get the top 5
+        top_books = sorted(popular_books_data, key=lambda x: x["popularity"], reverse=True)[:5]
+        return top_books
+
     # Returns a list of all books in the library
     @log_decorator
     def display_all_books(self):
