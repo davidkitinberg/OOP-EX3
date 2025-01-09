@@ -1,6 +1,7 @@
 import csv
 import os
 from datetime import datetime
+from Library import *
 
 """
 The WaitingListManager class manages the books waiting list in a library system.
@@ -34,6 +35,7 @@ class WaitingListManager:
                 "phone_num": phone,
                 "time_of_entry": datetime.now().isoformat()
             })
+
 
     def get_waiting_list_for_book(self, title):
         """Retrieve the waiting list for a specific book."""
@@ -86,3 +88,24 @@ class WaitingListManager:
             )
             writer.writeheader()
             writer.writerows(updated_list)
+
+    def count_waiting_list(self, title):
+        """
+        Count the number of people in the waiting list for a specific book.
+
+        Args:
+            title (str): The title of the book.
+
+        Returns:
+            int: Number of people in the waiting list for the book.
+        """
+        count = 0
+        if not os.path.exists(self.waiting_list_file):
+            return count  # No waiting list file, return 0
+
+        with open(self.waiting_list_file, "r", encoding="utf-8") as file:
+            reader = csv.DictReader(file)
+            for row in reader:
+                if row["title"].lower() == title.lower():
+                    count += 1
+        return count

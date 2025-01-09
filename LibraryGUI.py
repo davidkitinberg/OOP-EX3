@@ -381,6 +381,7 @@ class LibraryGUI:
             ),
         )
 
+        @log_decorator
         def perform_lend():
             selected_index = suggestions_listbox.curselection()
             if selected_index:
@@ -394,16 +395,19 @@ class LibraryGUI:
                 if result == "book borrowed successfully":
                     messagebox.showinfo("Success", f"The book '{title}' was borrowed successfully.")
                     self.create_main_menu()  # Automatically go back to the main menu
+                    return result
                 elif result == "book borrowed fail - no available copies":
                     # Prompt for the waiting list if the book is unavailable
-                    result = messagebox.askyesno(
+                    waitingListAsk = messagebox.askyesno(
                         "Waiting List",
                         f"'{title}' is fully borrowed.\nWould you like to be added to the waiting list?",
                     )
-                    if result:  # User chose "Yes"
+                    if waitingListAsk:  # User chose "Yes"
                         self.add_to_waiting_list_form(title)
+                        return "book borrowed fail - added client to the waiting list"
                     else:  # User chose "No"
                         self.create_main_menu()
+                        return result
             except ValueError as e:
                 # Handle exceptions (e.g., book does not exist)
                 messagebox.showerror("Error", str(e))
@@ -526,6 +530,7 @@ class LibraryGUI:
                     phone=entries["Phone Number"].get(),
                 )
                 messagebox.showinfo("Success", f"Added to waiting list for '{title}'.")
+                self.library.update_loaned_books_file()
                 self.create_main_menu()
             except Exception as e:
                 messagebox.showerror("Error", str(e))
