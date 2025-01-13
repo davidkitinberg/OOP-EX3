@@ -2,28 +2,25 @@ from typing import List, Dict
 import csv
 import os
 from BookFactory import BookFactory
-from log_decorator import log_decorator
 from WaitingListManager import WaitingListManager
 from notification_service import NotificationService, EmailNotifier, SMSNotifier
 
 
 """
 The Library class manages the books in a library system.
-It handles the book data from the books.csv file and keeps track of available copies in the available_books.csv file.
+It handles the book data from the books.csv file and keeps track of available/loaned copies in the available_books.csv & loaned_books.csv files.
 """
 
 class Library:
-    def __init__(self, books_file="csv_files/books.csv", available_books_file="csv_files/available_books.csv"):
+    def __init__(self, books_file="csv_files/books.csv", available_books_file="csv_files/available_books.csv", loaned_books_file="csv_files/loaned_books.csv"):
         self.books_file = books_file
         self.available_books_file = available_books_file
+        self.loaned_books_file = loaned_books_file
         self.books = []  # List to store book objects
         self.available_copies = {}  # Dictionary to track available copies
+        self.loaned_books = {} # Dictionary to track loaned copies
         self.waiting_list_manager = WaitingListManager("csv_files/waiting_list.csv")  # Initialize the waiting list manager
         self.notification_service = NotificationService()  # Initialize the notification service
-
-        # Add notification observers (email, SMS, etc.)
-        self.notification_service.add_observer(EmailNotifier())
-        self.notification_service.add_observer(SMSNotifier())
 
         self.load_books_to_memory()
 
@@ -55,6 +52,51 @@ class Library:
                 self.available_copies[book.title] = book.copies
             self.update_available_books_file()
 
+        # Initialize `loaned_copies` based on the `loaned_books_file`
+        if os.path.exists(self.loaned_books_file):
+            with open(self.loaned_books_file, "r", encoding="utf-8") as file:
+                reader = csv.DictReader(file)
+                for row in reader:
+                    self.loaned_books[row["title"]] = int(row["loaned_copies"])
+        else:
+            # Default initialization for loaned copies if the file doesn't exist
+            for book in self.books:
+                total_copies = book.copies
+                available_copies = self.available_copies.get(book.title, 0)
+                self.loaned_books[book.title] = total_copies - available_copies
+
+
+
+    def update_loaned_books_file(self):
+        """
+        Update or create the loaned_books.csv file based on current books and available copies.
+        """
+        loaned_books_data = []
+
+        # Calculate loaned books data
+        for book in self.books:
+            total_copies = book.copies
+            available_copies = self.available_copies.get(book.title, 0)
+            loaned_copies = total_copies - available_copies
+            in_waiting_list = self.waiting_list_manager.count_waiting_list(book.title)
+
+            loaned_books_data.append({
+                "title": book.title,
+                "author": book.author,
+                "loaned_copies": loaned_copies,
+                "in_waiting_list": in_waiting_list,
+                "genre": book.genre,
+                "year": book.year,
+            })
+
+        # Write loaned_books.csv
+        with open(self.loaned_books_file, "w", newline="", encoding="utf-8") as file:
+            fieldnames = ["title", "author", "loaned_copies", "in_waiting_list", "genre", "year"]
+            writer = csv.DictWriter(file, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(loaned_books_data)
+
+
     def update_available_books_file(self):
         """Save the current available books state to the available_books file."""
         with open(self.available_books_file, "w", newline="", encoding="utf-8") as file:
@@ -83,87 +125,68 @@ class Library:
                     "genre": book.genre,
                     "year": book.year,
                 })
-        print("Books file updated successfully.")
 
     def switch_is_loaned_state(self, title):
         """Switch the is_loaned state based on available copies."""
         for book in self.books:
             if book.title == title:
                 available = self.available_copies.get(title, 0)
-                print(f"Switching is_loaned state for '{title}': available_copies={available}")
 
                 # Update the is_loaned state
                 if available == 0:
-                    print(f"Setting '{title}' as loaned")
                     book.is_loaned = True
                 else:
-                    print(f"Setting '{title}' as available")
                     book.is_loaned = False
 
                 # Save the updated is_loaned state to the books.csv file
                 self.update_books_file()
                 self.update_available_books_file()
+                self.update_loaned_books_file()
                 return
         raise ValueError(f"Book '{title}' not found in the library.")
 
-    # @log_decorator("Book borrowed")
-    # def borrow_book(self, title):
-    #     """Borrow a book, decrementing its available copies."""
-    #     if title in self.available_copies:
-    #         if self.available_copies[title] > 0:
-    #             self.available_copies[title] -= 1
-    #             self.switch_is_loaned_state(title)
-    #         else:
-    #             raise ValueError(f"'{title}' is currently unavailable.")
-    #     else:
-    #         raise ValueError(f"'{title}' does not exist in the library.")
 
-    @log_decorator
-    def borrow_book(self, title, client=None, email=None, phone=None):
+
+    def borrow_book(self, title):
         """
         Borrow a book, or return information about its availability.
         Returns:
-            - "borrowed_successfully" if the book was successfully borrowed.
-            - "unavailable" if the book is currently unavailable.
+            - "book borrowed successfully" if the book was successfully borrowed.
+            - "book borrowed fail - no available copies" if the book is currently unavailable.
             - Raises ValueError if the book does not exist.
         """
+        # Check if the book is in the system
         if title in self.available_copies:
+            # Check if there are available copies to lend
             if self.available_copies[title] > 0:
                 self.available_copies[title] -= 1
+                self.loaned_books[title] += 1
                 self.switch_is_loaned_state(title)
-                return "borrowed_successfully"
-            else:
-                if client and email and phone:
-                    self.waiting_list_manager.add_to_waiting_list(
-                        title=title,
-                        author=next(book.author for book in self.books if book.title == title),
-                        genre=next(book.genre for book in self.books if book.title == title),
-                        year=next(book.year for book in self.books if book.title == title),
-                        client=client,
-                        email=email,
-                        phone=phone,
-                    )
-                    return "added_to_waiting_list"
-                else:
-                    return "unavailable"
-        else:
+                self.notification_service.notify_all(f"The book '{title}' has been borrowed.")
+                return "book borrowed successfully"
+            else: # If there are no available copies -> start waiting list sequence BEEP BOP
+                return "book borrowed fail - no available copies"
+        else: # If book does not exist in the library
             raise ValueError(f"'{title}' does not exist in the library.")
 
-    @log_decorator
+
     def return_book(self, title):
         """Return a book, notify the next client if there's a waiting list."""
         try:
             for book in self.books:
                 if book.title == title:
                     if self.available_copies[title] < book.copies:
-                        self.available_copies[title] += 1
-                        self.switch_is_loaned_state(title)
 
                         # Notify the first client on the waiting list
                         waiting_list = self.waiting_list_manager.get_waiting_list_for_book(title)
-                        if waiting_list:
+                        if waiting_list: # If there is a waiting list for that book
                             next_client = self.waiting_list_manager.notify_next_client(title)
+                            self.switch_is_loaned_state(title)
                             return f"book '{title}' returned successfully, notified '{next_client['client']}'"
+
+                        self.available_copies[title] += 1
+                        self.loaned_books[title] -= 1
+                        self.switch_is_loaned_state(title)
                         return f"book '{title}' returned successfully"
                     else:
                         raise ValueError(f"All copies of '{title}' are already returned.")
@@ -172,19 +195,36 @@ class Library:
             return f"book '{title}' returned fail"
 
 
-    @log_decorator
+
     def add_book(self, book):
         """Add a book to the library."""
         try:
+            for book in self.books: # Check if book already exists in the library
+                if (book.title == book.title
+                        and book.author == book.author
+                        and book.genre == book.genre
+                        and book.year == book.year):
+                    raise ValueError(f"'{book.title}' already exists in the library.")
             self.books.append(book)
-            self.available_copies[book.title] = book.copies
+            if book.is_loaned:  # If the book is marked as loaned
+                self.available_copies[book.title] = 0  # All copies are loaned out
+                self.loaned_books[book.title] = book.copies  # Loaned copies equal total copies
+            else:  # If the book is not loaned
+                self.available_copies[book.title] = book.copies  # All copies are available
+                self.loaned_books[book.title] = 0  # No copies are loaned
+
+            # Notify users
+            self.notification_service.notify_all(f"Book '{book.title}' has been added to the library.")
+
+            # Update files
             self.update_available_books_file()
             self.update_books_file()
+            self.update_loaned_books_file()
             return f"book added successfully"
-        except Exception:
-            return f"book added fail"
+        except Exception as e:
+            raise RuntimeError(f"Book added fail: {str(e)}")
 
-    @log_decorator
+
     def remove_book(self, title):
         """Remove a book and notify clients on the waiting list."""
         # Check if the book is in the system
@@ -195,28 +235,40 @@ class Library:
                 raise ValueError(f"'{title}' not found in the library.")
             # Delete the book from all listings + update the miss fortunes clients that waited for it
             self.available_copies.pop(title, None)
+            self.loaned_books.pop(title, None)
             self.waiting_list_manager.remove_waiting_list_for_book(title)
             self.notification_service.notify_all(f"Book '{title}' has been removed from the library.")
             self.update_available_books_file()
+            self.update_loaned_books_file()
             self.update_books_file()
             return f"book '{title}' removed successfully"
         except Exception:
             return f"book '{title}' removed fail"
 
-    # Returns a list of all books in the library
-    @log_decorator
-    def display_all_books(self):
-        """Display all books in the library."""
-        return [f"{book.title} by {book.author}" for book in self.books]
+    def popular_books(self):
+        """
+        Returns the top 5 popular books based on the sum of loaned_copies and in_waiting_list.
+        """
+        popular_books_data = []
 
-    # Returns a list of books that are not currently loaned out
-    @log_decorator
-    def display_available_books(self):
-        """Display available books."""
-        return [f"{book.title} by {book.author}" for book in self.books if self.available_copies.get(book.title, 0) > 0]
+        # Load loaned_books data
+        if os.path.exists(self.loaned_books_file):
+            with open(self.loaned_books_file, "r", encoding="utf-8") as file:
+                reader = csv.DictReader(file)
+                for row in reader:
+                    loaned_copies = int(row["loaned_copies"])
+                    in_waiting_list = int(row["in_waiting_list"])
+                    popularity_score = loaned_copies + in_waiting_list
 
-    # Returns a list of books in a specific category
-    @log_decorator
-    def display_books_by_category(self, category):
-        """Display books in a specific category."""
-        return [f"{book.title} by {book.author}" for book in self.books if book.genre.lower() == category.lower()]
+                    popular_books_data.append({
+                        "title": row["title"],
+                        "author": row["author"],
+                        "popularity": popularity_score,
+                        "genre": row["genre"],
+                        "year": row["year"],
+                    })
+
+        # Sort books by popularity in descending order and get the top 5
+        top_books = sorted(popular_books_data, key=lambda x: x["popularity"], reverse=True)[:5]
+        return top_books
+

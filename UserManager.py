@@ -1,7 +1,6 @@
 import csv
 import os
 from werkzeug.security import generate_password_hash, check_password_hash
-from log_decorator import log_decorator
 
 """
 The UserManager class is responsible for managing user accounts in the system. 
@@ -31,7 +30,6 @@ class UserManager:
                 writer.writerow({"username": username, "password": hashed_password})
 
     # Registers a new user by adding them to the system
-    @log_decorator
     def register_user(self, username, password):
         """Register a new user."""
         if username in self.users:
@@ -39,7 +37,6 @@ class UserManager:
         hashed_password = generate_password_hash(password)
         self.users[username] = hashed_password
         self.save_users()
-        return "registered successfully"
 
 
     # Authenticates a user by verifying their credentials

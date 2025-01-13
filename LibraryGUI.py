@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import messagebox
 from tkinter import ttk
+from BookCategoryIterator import BookCategoryIterator
 from Library import Library
 from UserManager import UserManager
 from BookFactory import BookFactory
@@ -18,8 +19,7 @@ class LibraryGUI:
 
         self.root = tk.Tk()
         self.root.title("Library Management System")
-        #self.root.configure(background="#3d378a")
-        #self.root.geometry("800x600")
+
         # Get screen dimensions
         screen_width = self.root.winfo_screenwidth()
         screen_height = self.root.winfo_screenheight()
@@ -35,7 +35,7 @@ class LibraryGUI:
         # Position the window at the center of the screen
         self.root.geometry(f"{window_width}x{window_height}+{x}+{y}")
 
-        # Continue with other initialization
+        # Continue with other initializations
         self.dynamic_search = DynamicSearch()
         self.library = Library()
         self.user_manager = UserManager()
@@ -174,7 +174,7 @@ class LibraryGUI:
                 self.user_manager.register_user(username, password)
                 messagebox.showinfo("Success", "Registration Successful")
                 self.create_login_register_menu()
-                return f"registration successful"
+                return f"registered successfully"
             except Exception as e:
                 messagebox.showerror("Error", str(e))
                 return f"registered fail: {str(e)}"
@@ -198,6 +198,7 @@ class LibraryGUI:
             entries[field] = entry
 
         # Add a book to the books.csv file
+        @log_decorator
         def perform_add():
             try:
                 # Parse the is_loaned field as a boolean
@@ -212,25 +213,28 @@ class LibraryGUI:
                     genre=entries["Genre"].get(),
                     year=int(entries["Year"].get())
                 )
-                self.library.add_book(book)
-                messagebox.showinfo("Success", "Book added successfully")
+                # Call the library's add_book method
+                result = self.library.add_book(book)
+
+                # Notify the user of success
+                messagebox.showinfo("Success", result)
                 self.create_main_menu()
-            except ValueError:
-                messagebox.showerror("Error", "Invalid input. Please check the fields.")
+                return result
+            except Exception:
+                # Handle general errors and log them
+                messagebox.showerror("Error", "Book addition failed - please write valid parameters")
+                return "book added fail"
 
         tk.Button(self.root, text="Add Book", command=perform_add, width=20).pack(pady=10)
         tk.Button(self.root, text="Back", command=self.create_main_menu, width=20).pack(pady=10)
 
     # Allows the user to remove a book from the library
     def remove_book(self):
-        """
-        Allows the user to dynamically search for books to remove using suggestions.
-        """
         self.clear_window()
 
         tk.Label(self.root, text="Remove Book", font=("Arial", 16)).pack(pady=10)
 
-        tk.Label(self.root, text="Search Query:").pack()
+        tk.Label(self.root, text="Search Query by title:").pack()
         query_entry = tk.Entry(self.root)
         query_entry.pack()
 
@@ -246,7 +250,11 @@ class LibraryGUI:
             ),
         )
 
+        @log_decorator
         def perform_remove():
+            """
+            Allows the user to dynamically search for books to remove using suggestions.
+            """
             selected_index = suggestions_listbox.curselection()
             if selected_index:
                 title = suggestions_listbox.get(selected_index[0])  # Get the selected book title
@@ -254,11 +262,16 @@ class LibraryGUI:
                 title = query_entry.get()  # Use the text entered in the query_entry if no suggestion is selected
 
             try:
-                self.library.remove_book(title)
-                messagebox.showinfo("Success", f"The book '{title}' was removed successfully.")
+                result = self.library.remove_book(title)
+
+                # Pop a message to the user of success
+                messagebox.showinfo("Success", result)
                 self.create_main_menu()
-            except ValueError as e:
-                messagebox.showerror("Error", str(e))
+                return result
+            except Exception:
+                # Handle general errors and log them
+                messagebox.showerror("Error", "Book remove failed - please write valid parameters")
+                return "book added fail"
 
         tk.Button(self.root, text="Remove Book", command=perform_remove, width=20).pack(pady=10)
         tk.Button(self.root, text="Back", command=self.create_main_menu, width=20).pack(pady=10)
@@ -302,21 +315,28 @@ class LibraryGUI:
                 event, query_entry, suggestions_listbox, search_var.get(), self.library, self.dynamic_search
             ),
         )
-
+        @log_decorator
         def perform_search():
+            """
+            Dynamically searches books based on user input.
+            """
             selected_index = suggestions_listbox.curselection()
             if selected_index:
                 query = suggestions_listbox.get(selected_index[0])
             else:
                 query = query_entry.get()
 
+            log = None
             strategy = None
             if search_var.get() == "Title":
                 strategy = SearchByTitle()
+                log = "name"
             elif search_var.get() == "Author":
                 strategy = SearchByAuthor()
+                log = "author"
             elif search_var.get() == "Genre":
                 strategy = SearchByCategory()
+                log = "category"
 
             if strategy:
                 results = strategy.search(self.library.books, query)
@@ -327,8 +347,10 @@ class LibraryGUI:
                             result_frame,
                             text=f"{book.title} by {book.author} ({book.year}) - {book.copies} copies",
                         ).pack()
+                        return f"Search book \"{book.title}\" by {log} completed successfully"
                 else:
                     messagebox.showinfo("No Results", f"No books found for your query: {query}.")
+                    return f"Search book \"{query}\" by {log} failed"
 
         tk.Button(self.root, text="Search", command=perform_search, width=20).pack(pady=10)
         tk.Button(self.root, text="Back", command=self.create_main_menu, width=20).pack(pady=10)
@@ -336,15 +358,82 @@ class LibraryGUI:
     # Displays a list of all books in the library
     def view_books(self):
         scrollable_frame = self.create_scrollable_frame("View Books", self.create_main_menu) # Add a scroll wheel
+        search_var = tk.StringVar(value="All books")
 
-        books = self.library.books
-        for book in books:
-            tk.Label(scrollable_frame,
-                     text=f"{book.title} by {book.author} ({book.year}) - {book.copies} copies",
-                     anchor="center", # Aligns text in the center
-                     justify="center", # Centers multi-line text
-                     width=80,  # Adjust width to ensure proper centering
-                     ).pack(fill=tk.X, pady=2) # Expands label to fit width
+        # Search options
+        options = [
+            ("All books", "All books"),
+            ("Available books", "Available books"),
+            ("Loaned books", "Loaned books"),
+            ("By Category", "By Category"),
+        ]
+
+        # Add the radio buttons above the book list
+        for text, value in options:
+            tk.Radiobutton(self.root, text=text, variable=search_var, value=value, command=lambda: display_books()).pack()
+
+        @log_decorator
+        def display_books():
+            """
+            Displays books based on user input uses BookCategoryIterator (iterator design pattern).
+            """
+            try:
+                selected_option = search_var.get()
+                if selected_option == "All books":
+                    books = self.library.books
+                    log_message = "Displayed all books successfully"
+                elif selected_option == "Available books":
+                    books = [book for book in self.library.books if
+                             self.library.available_copies.get(book.title, 0) > 0]
+                    log_message = "Displayed available books successfully"
+                elif selected_option == "Loaned books":
+                    books = [book for book in self.library.books if
+                             self.library.available_copies.get(book.title, 0) == 0]
+                    log_message = "Displayed borrowed books successfully"
+                elif selected_option == "By Category":
+                    iterator = BookCategoryIterator(self.library.books)
+                    log_message = "Displayed books by category successfully"
+                else:
+                    books = []
+                    log_message = "Displaying books failed"
+            except Exception as e:
+                log_message = f"Displaying books failed: {e}"
+                raise log_message
+
+            for widget in scrollable_frame.winfo_children():
+                widget.destroy()
+
+            if selected_option == "By Category":
+                for item in iterator:
+                    if isinstance(item, str):
+                        tk.Label(scrollable_frame, text=f"{item}:", font=("Arial", 18, "bold"), anchor="center", justify="center", width=20).pack(fill=tk.X, pady=5)
+                    else:  # Book details
+                        text = f"{item.title} by {item.author} ({item.year}) - {item.copies} copies"
+                        tk.Label(scrollable_frame,
+                                 text=text,
+                                 anchor="center",
+                                 justify="center",
+                                 width=110).pack(fill=tk.X, pady=2)
+            else:
+                for book in books:
+                    if selected_option == "All books":
+                        text = f"{book.title} by {book.author} ({book.year}) - {book.copies} copies"
+                    elif selected_option == "Available books":
+                        text = f"{book.title} by {book.author} ({book.year}) - {self.library.available_copies.get(book.title, 0)} available copies"
+                    elif selected_option == "Loaned books":
+                        text = f"{book.title} by {book.author} ({book.year}) - {self.library.loaned_books.get(book.title, 0)} loaned copies"
+
+                    tk.Label(scrollable_frame,
+                             text=text,
+                             anchor="center",
+                             justify="center",
+                             width=110).pack(fill=tk.X, pady=2)
+
+            return log_message
+
+        # Initially populate the book list with all books
+        display_books()
+
 
     def lend_book(self):
         """Handle lending a book."""
@@ -368,6 +457,7 @@ class LibraryGUI:
             ),
         )
 
+        @log_decorator
         def perform_lend():
             selected_index = suggestions_listbox.curselection()
             if selected_index:
@@ -378,21 +468,24 @@ class LibraryGUI:
             try:
                 # Attempt to borrow the book
                 result = self.library.borrow_book(title)
-                if result == "borrowed_successfully":
+                if result == "book borrowed successfully":
                     messagebox.showinfo("Success", f"The book '{title}' was borrowed successfully.")
                     self.create_main_menu()  # Automatically go back to the main menu
-                elif result == "unavailable":
+                    return result
+                elif result == "book borrowed fail - no available copies":
                     # Prompt for the waiting list if the book is unavailable
-                    result = messagebox.askyesno(
+                    waitingListAsk = messagebox.askyesno(
                         "Waiting List",
                         f"'{title}' is fully borrowed.\nWould you like to be added to the waiting list?",
                     )
-                    if result:  # User chose "Yes"
+                    if waitingListAsk:  # User chose "Yes"
                         self.add_to_waiting_list_form(title)
+                        return "book borrowed fail - added client to the waiting list"
                     else:  # User chose "No"
                         self.create_main_menu()
+                        return result
             except ValueError as e:
-                # Handle exceptions (e.g., book does not exist)
+                # Handle exceptions
                 messagebox.showerror("Error", str(e))
                 self.create_main_menu()
 
@@ -420,8 +513,11 @@ class LibraryGUI:
                 event, title_entry, suggestions_listbox, "Title", self.library, self.dynamic_search
             ),
         )
-
+        @log_decorator
         def perform_return():
+            """
+            Return a book to the library's system.
+            """
             selected_index = suggestions_listbox.curselection()
             if selected_index:
                 title = suggestions_listbox.get(selected_index[0])  # Get the selected book title
@@ -429,34 +525,59 @@ class LibraryGUI:
                 title = title_entry.get()  # Use the text entered in the query_entry if no suggestion is selected
 
             try:
-                self.library.return_book(title)
-                messagebox.showinfo("Success", "Book returned successfully")
+                result = self.library.return_book(title)
+                # Notify the user of success
+                messagebox.showinfo("Success", result)
+                self.create_main_menu()
+                return result
+            except Exception:
+                # Handle general errors and log them
+                messagebox.showerror("Error", "Book return failed - please write valid parameters")
                 self.create_main_menu()  # Automatically go back to the main menu
-            except ValueError as e:
-                messagebox.showerror("Error", str(e))
-                self.create_main_menu()  # Automatically go back to the main menu
+                return "book return fail"
 
         tk.Button(self.root, text="Return Book", command=perform_return, width=20).pack(pady=10)
         tk.Button(self.root, text="Back", command=self.create_main_menu, width=20).pack(pady=10)
 
-    # Displays the top 5 books with the highest number of copies
+    # Displays the top 5 books with the highest number of loaned books + clients in waiting list for it.
     @log_decorator
     def popular_books(self):
+        """
+        Display the top 5 popular books in the GUI.
+        """
         scrollable_frame = self.create_scrollable_frame("Popular Books", self.create_main_menu)
 
-        books = sorted(self.library.books, key=lambda b: -b.get_copies())[:5]
-        for book in books:
-            tk.Label(scrollable_frame,
-                          text=f"{book.title} by {book.author} ({book.year}) - {book.copies} copies",
-                          anchor="center",  # Aligns text in the center
-                          justify="center",  # Centers multi-line text
-                          width=80,  # Adjust width to ensure proper centering
-                          ).pack(fill=tk.X, pady=2)  # Expands label to fit width
+        try:
+            books = self.library.popular_books()  # Fetch top 5 popular books
+            if not books:
+                tk.Label(scrollable_frame, text="No popular books found.").pack()
+                return "popular books - displayed successfully (none found)"
+
+            # Display the top 5 books
+            for book in books:
+                tk.Label(
+                    scrollable_frame,
+                    text=f"{book['title']} by {book['author']} (Popularity: {book['popularity']})",
+                    anchor="center",
+                    justify="center",
+                    width=110,
+                ).pack(fill=tk.X, pady=2)
+
+            return "popular books - displayed successfully"
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to display popular books: {str(e)}")
+            return "popular books - displayed failed"
 
     # Logs out the current user and returns to the login/register menu
+    @log_decorator
     def logout(self):
-        self.current_user = None
-        self.create_login_register_menu()
+        try:
+            self.current_user = None
+            self.create_login_register_menu()
+            return "logged out successfully"
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to logout: {str(e)}")
+            return "logged out successfully"
 
     # This is simple function to clear all widgets in GUI
     def clear_window(self):
@@ -498,6 +619,9 @@ class LibraryGUI:
             entries[field] = entry
 
         def submit_to_waiting_list():
+            """
+            Get entries from the user's input and add them to the waiting list.
+            """
             try:
                 self.library.waiting_list_manager.add_to_waiting_list(
                     title=entries["Title"].get(),
@@ -509,6 +633,7 @@ class LibraryGUI:
                     phone=entries["Phone Number"].get(),
                 )
                 messagebox.showinfo("Success", f"Added to waiting list for '{title}'.")
+                self.library.update_loaned_books_file()
                 self.create_main_menu()
             except Exception as e:
                 messagebox.showerror("Error", str(e))
