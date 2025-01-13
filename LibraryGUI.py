@@ -353,7 +353,6 @@ class LibraryGUI:
         tk.Button(self.root, text="Back", command=self.create_main_menu, width=20).pack(pady=10)
 
     # Displays a list of all books in the library
-    # Displays a list of all books in the library
     def view_books(self):
         scrollable_frame = self.create_scrollable_frame("View Books", self.create_main_menu) # Add a scroll wheel
         search_var = tk.StringVar(value="All books")
@@ -362,45 +361,77 @@ class LibraryGUI:
         options = [
             ("All books", "All books"),
             ("Available books", "Available books"),
-            ("Loaned books", "Loaned books")
+            ("Loaned books", "Loaned books"),
+            ("By Category", "By Category"),
         ]
 
         # Add the radio buttons above the book list
         for text, value in options:
             tk.Radiobutton(self.root, text=text, variable=search_var, value=value, command=lambda: display_books()).pack()
 
+        @log_decorator
         def display_books():
-            selected_option = search_var.get()
-            if selected_option == "All books":
-                books = self.library.books
-            elif selected_option == "Available books":
-                books = [book for book in self.library.books if self.library.available_copies.get(book.title, 0) > 0]
-            elif selected_option == "Loaned books":
-                books = [book for book in self.library.books if self.library.available_copies.get(book.title, 0) == 0]
-            else:
-                books = []
+            try:
+                selected_option = search_var.get()
+                if selected_option == "All books":
+                    books = self.library.books
+                    log_message = "Displayed all books successfully"
+                elif selected_option == "Available books":
+                    books = [book for book in self.library.books if
+                             self.library.available_copies.get(book.title, 0) > 0]
+                    log_message = "Displayed available books successfully"
+                elif selected_option == "Loaned books":
+                    books = [book for book in self.library.books if
+                             self.library.available_copies.get(book.title, 0) == 0]
+                    log_message = "Displayed borrowed books successfully"
+                elif selected_option == "By Category":
+                    books_by_category = {}
+                    for book in self.library.books:
+                        genre = book.genre
+                        if genre not in books_by_category:
+                            books_by_category[genre] = []
+                        books_by_category[genre].append(book)
+                    books = books_by_category
+                    log_message = "Displayed books by category successfully"
+                else:
+                    books = []
+                    log_message = "Displaying books failed"
+            except Exception as e:
+                log_message = f"Displaying books failed: {e}"
+                raise log_message
 
             for widget in scrollable_frame.winfo_children():
                 widget.destroy()
 
-            for book in books:
-                if selected_option == "All books":
-                    text = f"{book.title} by {book.author} ({book.year}) - {book.copies} copies"
-                elif selected_option == "Available books":
-                    text = f"{book.title} by {book.author} ({book.year}) - {self.library.available_copies.get(book.title, 0)} available copies"
-                elif selected_option == "Loaned books":
-                    text = f"{book.title} by {book.author} ({book.year}) - {self.library.loaned_books.get(book.title, 0)} loaned copies"
+            if selected_option == "By Category":
+                for genre, genre_books in sorted(books.items()):
+                    tk.Label(scrollable_frame, text=f"{genre}:", font=("Arial", 14, "bold"), anchor="center", justify="left", width=20).pack(fill=tk.X, pady=5)
+                    for book in genre_books:
+                        text = f"{book.title} by {book.author} ({book.year}) - {book.copies} copies"
+                        tk.Label(scrollable_frame,
+                                 text=text,
+                                 anchor="center",
+                                 justify="left",
+                                 width=110).pack(fill=tk.X, pady=2)
+            else:
+                for book in books:
+                    if selected_option == "All books":
+                        text = f"{book.title} by {book.author} ({book.year}) - {book.copies} copies"
+                    elif selected_option == "Available books":
+                        text = f"{book.title} by {book.author} ({book.year}) - {self.library.available_copies.get(book.title, 0)} available copies"
+                    elif selected_option == "Loaned books":
+                        text = f"{book.title} by {book.author} ({book.year}) - {self.library.loaned_books.get(book.title, 0)} loaned copies"
 
-                tk.Label(scrollable_frame,
-                         text=text,
-                         anchor="center", # Aligns text in the center
-                         justify="center", # Centers multi-line text
-                         width=110,  # Adjust width to ensure proper centering
-                         ).pack(fill=tk.X, pady=2) # Expands label to fit width
+                    tk.Label(scrollable_frame,
+                             text=text,
+                             anchor="center",
+                             justify="center",
+                             width=110).pack(fill=tk.X, pady=2)
+
+            return log_message
 
         # Initially populate the book list with all books
         display_books()
-
 
 
     def lend_book(self):
