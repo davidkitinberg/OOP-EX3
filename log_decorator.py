@@ -13,7 +13,7 @@ if not os.path.exists(LOG_FILE):
 
 def log_decorator(func):
     """
-    Decorator to log actions to a file based on the function's returned message.
+    Decorator design pattern to log actions to a file based on the function's returned message.
 
     The function must return a specific success or failure message.
     """

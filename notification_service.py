@@ -6,19 +6,19 @@ class Observer:
         raise NotImplementedError("Subclasses must implement this method")
 
 class EmailNotifier(Observer):
-    """Concrete observer for email notifications."""
+    """Observer for email notifications."""
     def notify(self, message):
-        print(f"Sending email: {message}")
+        print(f"Sending Email: {message}")
 
 class SMSNotifier(Observer):
-    """Concrete observer for SMS notifications."""
+    """Observer for SMS notifications."""
     def notify(self, message):
         print(f"Sending SMS: {message}")
 
 class NotificationService:
     """Manages observers and dispatches notifications."""
     def __init__(self):
-        self.observers = []
+        self.observers = [] # List of the Observers in the system
 
     def add_observer(self, observer):
         """Register an observer."""

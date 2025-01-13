@@ -1,7 +1,6 @@
-import csv
-import os
 from datetime import datetime
 from Library import *
+from notification_service import NotificationService, EmailNotifier, SMSNotifier
 
 """
 The WaitingListManager class manages the books waiting list in a library system.
@@ -10,6 +9,10 @@ It handles client's requests to wait for a specific book by updating the waiting
 
 class WaitingListManager:
     def __init__(self, waiting_list_file="csv_files/waiting_list.csv"):
+        self.notification_service = NotificationService()  # Initialize the notification service
+        # Add notification observers (email, SMS, etc.)
+        self.notification_service.add_observer(EmailNotifier())
+        self.notification_service.add_observer(SMSNotifier())
         self.waiting_list_file = waiting_list_file
         if not os.path.exists(self.waiting_list_file):
             with open(self.waiting_list_file, "w", newline="", encoding="utf-8") as file:
@@ -70,10 +73,26 @@ class WaitingListManager:
         if missing_keys:
             raise KeyError(f"Missing keys in waiting list entry: {missing_keys}")
 
-        # Notify the next client
-        print(f"Notifying {next_client['client']} at {next_client['email_addr']} for '{title}'...")
-        self.remove_waiting_list_entry(next_client)
-        return next_client
+        # Notify the next client via email and SMS
+        try:
+
+            notify_message = f"Dear {next_client['client']},\n\nThe book '{title}' is now available for you. Please visit the library to borrow it.\n\nThank you!"
+            # Email Notification
+            EmailNotifier.notify(next_client["email_addr"], notify_message)
+            # SMS Notification
+            SMSNotifier.notify(next_client["email_addr"], notify_message)
+
+            print(
+                f"Successfully notified {next_client['client']} at {next_client['email_addr']} and {next_client['phone_num']} for '{title}'.")
+
+            # Remove the client from the waiting list
+            self.remove_waiting_list_entry(next_client)
+
+            return next_client
+
+        except Exception as e:
+            print(f"Failed to notify {next_client['client']}: {e}")
+            return None
 
     def remove_waiting_list_entry(self, entry):
         """Remove a specific entry from the waiting list."""
@@ -91,13 +110,7 @@ class WaitingListManager:
 
     def count_waiting_list(self, title):
         """
-        Count the number of people in the waiting list for a specific book.
-
-        Args:
-            title (str): The title of the book.
-
-        Returns:
-            int: Number of people in the waiting list for the book.
+        Returns the number of people in the waiting list for a specific book.
         """
         count = 0
         if not os.path.exists(self.waiting_list_file):

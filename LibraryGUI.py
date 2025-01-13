@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import messagebox
 from tkinter import ttk
+from BookCategoryIterator import BookCategoryIterator
 from Library import Library
 from UserManager import UserManager
 from BookFactory import BookFactory
@@ -18,8 +19,7 @@ class LibraryGUI:
 
         self.root = tk.Tk()
         self.root.title("Library Management System")
-        #self.root.configure(background="#3d378a")
-        #self.root.geometry("800x600")
+
         # Get screen dimensions
         screen_width = self.root.winfo_screenwidth()
         screen_height = self.root.winfo_screenheight()
@@ -35,7 +35,7 @@ class LibraryGUI:
         # Position the window at the center of the screen
         self.root.geometry(f"{window_width}x{window_height}+{x}+{y}")
 
-        # Continue with other initialization
+        # Continue with other initializations
         self.dynamic_search = DynamicSearch()
         self.library = Library()
         self.user_manager = UserManager()
@@ -230,14 +230,11 @@ class LibraryGUI:
 
     # Allows the user to remove a book from the library
     def remove_book(self):
-        """
-        Allows the user to dynamically search for books to remove using suggestions.
-        """
         self.clear_window()
 
         tk.Label(self.root, text="Remove Book", font=("Arial", 16)).pack(pady=10)
 
-        tk.Label(self.root, text="Search Query:").pack()
+        tk.Label(self.root, text="Search Query by title:").pack()
         query_entry = tk.Entry(self.root)
         query_entry.pack()
 
@@ -255,6 +252,9 @@ class LibraryGUI:
 
         @log_decorator
         def perform_remove():
+            """
+            Allows the user to dynamically search for books to remove using suggestions.
+            """
             selected_index = suggestions_listbox.curselection()
             if selected_index:
                 title = suggestions_listbox.get(selected_index[0])  # Get the selected book title
@@ -264,7 +264,7 @@ class LibraryGUI:
             try:
                 result = self.library.remove_book(title)
 
-                # Notify the user of success
+                # Pop a message to the user of success
                 messagebox.showinfo("Success", result)
                 self.create_main_menu()
                 return result
@@ -317,6 +317,9 @@ class LibraryGUI:
         )
         @log_decorator
         def perform_search():
+            """
+            Dynamically searches books based on user input.
+            """
             selected_index = suggestions_listbox.curselection()
             if selected_index:
                 query = suggestions_listbox.get(selected_index[0])
@@ -371,6 +374,9 @@ class LibraryGUI:
 
         @log_decorator
         def display_books():
+            """
+            Displays books based on user input uses BookCategoryIterator (iterator design pattern).
+            """
             try:
                 selected_option = search_var.get()
                 if selected_option == "All books":
@@ -385,13 +391,7 @@ class LibraryGUI:
                              self.library.available_copies.get(book.title, 0) == 0]
                     log_message = "Displayed borrowed books successfully"
                 elif selected_option == "By Category":
-                    books_by_category = {}
-                    for book in self.library.books:
-                        genre = book.genre
-                        if genre not in books_by_category:
-                            books_by_category[genre] = []
-                        books_by_category[genre].append(book)
-                    books = books_by_category
+                    iterator = BookCategoryIterator(self.library.books)
                     log_message = "Displayed books by category successfully"
                 else:
                     books = []
@@ -404,14 +404,15 @@ class LibraryGUI:
                 widget.destroy()
 
             if selected_option == "By Category":
-                for genre, genre_books in sorted(books.items()):
-                    tk.Label(scrollable_frame, text=f"{genre}:", font=("Arial", 14, "bold"), anchor="center", justify="left", width=20).pack(fill=tk.X, pady=5)
-                    for book in genre_books:
-                        text = f"{book.title} by {book.author} ({book.year}) - {book.copies} copies"
+                for item in iterator:
+                    if isinstance(item, str):
+                        tk.Label(scrollable_frame, text=f"{item}:", font=("Arial", 18, "bold"), anchor="center", justify="center", width=20).pack(fill=tk.X, pady=5)
+                    else:  # Book details
+                        text = f"{item.title} by {item.author} ({item.year}) - {item.copies} copies"
                         tk.Label(scrollable_frame,
                                  text=text,
                                  anchor="center",
-                                 justify="left",
+                                 justify="center",
                                  width=110).pack(fill=tk.X, pady=2)
             else:
                 for book in books:
@@ -484,7 +485,7 @@ class LibraryGUI:
                         self.create_main_menu()
                         return result
             except ValueError as e:
-                # Handle exceptions (e.g., book does not exist)
+                # Handle exceptions
                 messagebox.showerror("Error", str(e))
                 self.create_main_menu()
 
@@ -514,6 +515,9 @@ class LibraryGUI:
         )
         @log_decorator
         def perform_return():
+            """
+            Return a book to the library's system.
+            """
             selected_index = suggestions_listbox.curselection()
             if selected_index:
                 title = suggestions_listbox.get(selected_index[0])  # Get the selected book title
@@ -535,12 +539,11 @@ class LibraryGUI:
         tk.Button(self.root, text="Return Book", command=perform_return, width=20).pack(pady=10)
         tk.Button(self.root, text="Back", command=self.create_main_menu, width=20).pack(pady=10)
 
-    # Displays the top 5 books with the highest number of copies
+    # Displays the top 5 books with the highest number of loaned books + clients in waiting list for it.
     @log_decorator
     def popular_books(self):
         """
         Display the top 5 popular books in the GUI.
-        Logs success or failure of the operation.
         """
         scrollable_frame = self.create_scrollable_frame("Popular Books", self.create_main_menu)
 
@@ -616,6 +619,9 @@ class LibraryGUI:
             entries[field] = entry
 
         def submit_to_waiting_list():
+            """
+            Get entries from the user's input and add them to the waiting list.
+            """
             try:
                 self.library.waiting_list_manager.add_to_waiting_list(
                     title=entries["Title"].get(),

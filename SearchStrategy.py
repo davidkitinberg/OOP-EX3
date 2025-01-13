@@ -2,7 +2,9 @@
 from abc import ABC, abstractmethod
 from typing import List
 from Book import Book
-
+"""
+This class implements the strategy design pattern. 
+"""
 class SearchStrategy(ABC):
     @abstractmethod
     def search(self, books: List[Book], query: str) -> List[Book]:

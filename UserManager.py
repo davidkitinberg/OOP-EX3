@@ -1,7 +1,6 @@
 import csv
 import os
 from werkzeug.security import generate_password_hash, check_password_hash
-from log_decorator import log_decorator
 
 """
 The UserManager class is responsible for managing user accounts in the system. 
