@@ -42,6 +42,12 @@ The **Library Management System** is a Python-based project designed to manage l
   - The `NotificationService` class implements the observer pattern by maintaining a list of observers (`EmailNotifier`, `SMSNotifier`) and notifying them when a book becomes available.
   - This decouples the notification mechanism from the core library logic, making it extensible for additional notification methods.
 
+### 4. **Factory Pattern**
+- **Purpose**: Simplifies the creation of book objects.
+- **Usage**:
+- The BookFactory class is used to create book objects dynamically based on the provided parameters (e.g., title, author, genre, year, etc.).
+- It enhances scalability, as the factory can be extended to handle additional types of books or creation logic in the future.
+
 ## Functionalities
 
 ### Login/Register
@@ -82,6 +88,11 @@ will refer **only** to the query.
 ### Book View (By Category)
 <img src="images/book_view_by_category.png" alt="Book View (By Category)" width="500px">
 
+### How to run this project
+1. Run the LibraryGUI as it is used as the main for the project.
+2. Register if you are a first comer, else, log in using your credentials.
+3. Choose the action you want to take from the main menu.
+4. Enjoy ( ͡° ͜ʖ ͡°)
 
 ## Acknowledgments
 - Developed as part of a Python programming course.
